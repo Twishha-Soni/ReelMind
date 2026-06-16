@@ -1,6 +1,6 @@
 <img width="1774" height="248" alt="ChatGPT Image Jun 16, 2026, 10_01_38 AM" src="https://github.com/user-attachments/assets/82bfd071-8a15-4b3e-a64c-0716f52980ed" />
 
-# ReelMind
+# ReelMind-Agent
 
 A Telegram bot that turns your saved Instagram reels into a searchable personal library.
 Send a reel URL to index it. Type anything in plain English to find it later — by topic, mood, skill, or anything you remember about it.
@@ -63,7 +63,7 @@ embedder.py              generator.py
 | Bot interface | `python-telegram-bot` |
 | Video download | `yt-dlp` |
 | Video understanding | Gemini 2.5 Flash via `google-genai` SDK (File API) |
-| Result formatting | Gemini 2.0 Flash Lite via `google-genai` SDK |
+| Result formatting | Gemini 3.1 Flash Lite via `google-genai` SDK |
 | Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`) |
 | Vector store | ChromaDB (`PersistentClient`, local disk) |
 | Duplicate detection | SHA-256 URL hashing |
@@ -74,7 +74,7 @@ embedder.py              generator.py
 
 ```
 ReelMind/
-├── .env                      # API keys (never commit this)
+├── .env                      # API keys 
 ├── requirements.txt
 ├── chroma_store/             # Auto-created on first ingest
 └── src/
@@ -97,8 +97,8 @@ ReelMind/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/ReelMind.git
-cd ReelMind
+git clone https://github.com/your-username/ReelMind-Agent.git
+cd ReelMind-Agent
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -178,7 +178,7 @@ ReelMind embeds your query, finds the most semantically similar reels in ChromaD
 
 **Automatic intent detection** — there are no explicit commands for indexing or searching. The bot detects intent from the message itself: a file triggers bulk import, an Instagram URL triggers ingest, anything else triggers search. This minimises friction on mobile.
 
-**Two Gemini models** — video understanding uses `gemini-2.5-flash` (multimodal, higher capability); result formatting uses `gemini-2.0-flash-lite` (fast, lightweight). Splitting the workload across two models reduces free-tier quota pressure on either one.
+**Two Gemini models** — video understanding uses `gemini-2.5-flash` (multimodal, higher capability); result formatting uses `gemini-3.1-flash-lite` (fast, lightweight). Splitting the workload across two models reduces free-tier quota pressure on either one.
 
 **SHA-256 URL hashing** — URLs are hashed to produce stable, filesystem-safe ChromaDB document IDs. Same URL always maps to the same ID, so `upsert` silently overwrites instead of duplicating — no extra deduplication logic needed.
 
