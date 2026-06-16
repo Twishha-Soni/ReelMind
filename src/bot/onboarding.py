@@ -60,7 +60,7 @@ async def handle_bulk_onboarding(json_path: Path, update: Update) -> None:
     
     await update.message.reply_text(
         f"Found {total} reels. Starting onboarding...\n"
-        f"This will take a while — I'll update you every 10 reels."
+        f"This will take a while — I'll update you every 10 reels.\n"
     )
 
     processed = 0
@@ -78,6 +78,7 @@ async def handle_bulk_onboarding(json_path: Path, update: Update) -> None:
             video_path = download_reel(url)
             summary = analyze_video(video_path)
             store_reel(url, summary)
+            print("\n")
 
             # Clean up temp file immediately after storing
             video_path.unlink(missing_ok=True)

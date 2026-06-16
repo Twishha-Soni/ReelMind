@@ -90,3 +90,37 @@ def is_already_indexed(url: str) -> bool:
     results = collection.get(ids=[reel_id])
     return len(results["ids"]) > 0
 
+def get_stats() -> dict:
+    """
+    Return aggregate stats about the current ChromaDB collection.
+
+    count()        → total reels indexed (direct, no fetch needed)
+    .get()         → pulls all metadata dicts so we can find min/max timestamp
+    
+    Returns a dict with three keys:
+      - total: int
+      - earliest: str | None  (None if collection is empty)
+      - latest:   str | None
+    """
+    collection = _get_collection()
+    total = collection.count()
+
+    if total == 0:
+        return {
+            "total": 0,
+            "earliest": None,
+            "latest": None
+        }
+    
+    result = collection.get(include=["metadatas"])
+
+    # result["metadatas"] is a flat list of dicts — one per stored reel.
+    # Each dict has "url", "summary", "timestamp".
+    # ISO 8601 strings sort correctly as plain strings — no parsing needed.
+    timestamps = [meta["timestamp"] for meta in result["metadatas"]]
+
+    return {
+        "total": total,
+        "earliest": min(timestamps),
+        "latest": max(timestamps),
+    }
