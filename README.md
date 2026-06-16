@@ -1,3 +1,5 @@
+<img width="1774" height="248" alt="ChatGPT Image Jun 16, 2026, 10_01_38 AM" src="https://github.com/user-attachments/assets/82bfd071-8a15-4b3e-a64c-0716f52980ed" />
+
 # ReelMind
 
 A Telegram bot that turns your saved Instagram reels into a searchable personal library.
