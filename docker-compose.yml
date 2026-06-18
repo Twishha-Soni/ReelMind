@@ -3,7 +3,7 @@ services:
     # Build the image from the Dockerfile in the current directory.
     # On EC2, you'll replace this with a pre-built image from Docker Hub.
     # For local testing, "build: ." is all you need.
-    build: .
+    image: twishhasoni/reelmind:latest
 
     # Container name — makes docker logs, docker exec easier to type.
     container_name: reelmind
