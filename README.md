@@ -1,6 +1,6 @@
 <img width="1774" height="248" alt="ChatGPT Image Jun 16, 2026, 10_01_38 AM" src="https://github.com/user-attachments/assets/82bfd071-8a15-4b3e-a64c-0716f52980ed" />
 
-# ReelMind-Agent
+# ReelMind
 
 A Telegram bot that turns your saved Instagram reels into a searchable personal library.
 Send a reel URL to index it. Type anything in plain English to find it later — by topic, mood, skill, or anything you remember about it.
@@ -97,8 +97,8 @@ ReelMind/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/ReelMind-Agent.git
-cd ReelMind-Agent
+git clone https://github.com/your-username/ReelMind.git
+cd ReelMind
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
