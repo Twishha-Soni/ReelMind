@@ -1,4 +1,4 @@
-<img width="1774" height="248" alt="ChatGPT Image Jun 16, 2026, 10_01_38 AM" src="https://github.com/user-attachments/assets/82bfd071-8a15-4b3e-a64c-0716f52980ed" />
+<img width="1377" height="207" alt="ChatGPT Image Jun 20, 2026, 11_55_09 AM (1)" src="https://github.com/user-attachments/assets/2922a835-51b2-4c1c-8379-d4e698ab8939" />
 
 # ReelMind
 
