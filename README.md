@@ -10,6 +10,7 @@ Send a reel URL to index it. Type anything in plain English to find it later —
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-vector_store-f97316?style=flat-square)
 ![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285f4?style=flat-square&logo=google&logoColor=white)
 ![sentence-transformers](https://img.shields.io/badge/sentence--transformers-all--MiniLM--L6--v2-8b5cf6?style=flat-square)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ed?style=flat-square&logo=docker&logoColor=white)
 
 ---
 
@@ -67,6 +68,7 @@ embedder.py              generator.py
 | Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`) |
 | Vector store | ChromaDB (`PersistentClient`, local disk) |
 | Duplicate detection | SHA-256 URL hashing |
+| Containerisation | Docker + Docker Compose |
 
 ---
 
@@ -74,7 +76,10 @@ embedder.py              generator.py
 
 ```
 ReelMind/
-├── .env                      # API keys 
+├── Dockerfile                # Container build instructions
+├── docker-compose.yml        # Local and production run config
+├── .env                      # API keys (never committed)
+├── .dockerignore             # Excludes .env, venv, chroma_store from build
 ├── requirements.txt
 ├── chroma_store/             # Auto-created on first ingest
 └── src/
@@ -94,17 +99,30 @@ ReelMind/
 
 ## Setup
 
-### 1. Clone and install
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- A Telegram bot token from [@BotFather](https://t.me/BotFather)
+- A Gemini API key from [aistudio.google.com](https://aistudio.google.com) (free tier works)
+
+---
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/ReelMind.git
+git clone https://github.com/Twishha-Soni/ReelMind.git
 cd ReelMind
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
 ```
 
+---
+
 ### 2. Create your `.env` file
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in your keys:
 
 ```env
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
@@ -115,19 +133,100 @@ GEMINI_API_KEY_SEARCH_RESULT_GENERATOR=your_gemini_api_key
 
 | Key | Where to get it |
 |---|---|
-| `TELEGRAM_BOT_TOKEN` | [@BotFather](https://t.me/BotFather) on Telegram — create a new bot |
+| `TELEGRAM_BOT_TOKEN` | [@BotFather](https://t.me/BotFather) on Telegram — send `/newbot` |
 | `GEMINI_API_KEY_*` | [aistudio.google.com](https://aistudio.google.com) — free tier works |
 
 > Two separate Gemini keys are used to distribute load across free-tier RPM limits. You can use the same key for both.
 
-### 3. Run the bot
+---
+
+### 3. Run with Docker (recommended)
+
+This is the recommended way to run ReelMind locally. Docker guarantees identical behaviour across machines — no Python version mismatches, no missing system libraries.
+
+**Build the image and start the bot:**
 
 ```bash
-cd src
-python -m bot.telegram_bot
+docker compose up --build
 ```
 
-The terminal will print `ReelMind bot is running.` Open Telegram and start chatting with your bot.
+`--build` tells Docker to build the image from your local `Dockerfile` before starting. You only need this flag the first time, or after any code change. The first build takes 5–10 minutes (PyTorch and sentence-transformers are large). Subsequent builds reuse cached layers and finish in seconds.
+
+To run in the background (detached mode):
+
+```bash
+docker compose up --build -d
+```
+
+**Verify the bot is running:**
+
+```bash
+docker ps
+# Should show: reelmind   Up X seconds
+```
+
+**Read the logs:**
+
+```bash
+docker logs reelmind          # all logs so far
+docker logs -f reelmind       # follow in real time (Ctrl+C to exit)
+```
+
+You should see `ReelMind bot is running.` in the logs.
+
+**Open Telegram and send `/help`** — you should get a response immediately.
+
+---
+
+### 4. Stopping and restarting
+
+```bash
+# Stop the container (data is preserved)
+docker compose stop
+
+# Start it again
+docker compose start
+
+# Stop and remove the container (data is still preserved — it lives in chroma_store/)
+docker compose down
+
+# Rebuild after a code change and restart
+docker compose up --build -d
+```
+
+---
+
+### 5. ChromaDB persistence locally
+
+ChromaDB data is stored in `chroma_store/` at your project root via a bind mount. This directory is created automatically on first ingest. It is excluded from the Docker image (via `.dockerignore`) and from Git (via `.gitignore`), so your indexed reels persist across:
+
+- Container restarts (`docker compose restart`)
+- Container removal (`docker compose down` then `docker compose up`)
+- Image rebuilds (`docker compose up --build`)
+
+To wipe your local index and start fresh:
+
+```bash
+docker compose down
+rm -rf chroma_store/
+docker compose up -d
+```
+
+---
+
+### 6. Run without Docker (alternative)
+
+If you prefer running directly with Python:
+
+```bash
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+python3 src/bot/telegram_bot.py
+```
+
+> **Note:** This requires Python 3.11+, gcc, and g++ installed on your machine for sentence-transformers to compile. Docker handles all of this automatically.
 
 ---
 
@@ -182,4 +281,6 @@ ReelMind embeds your query, finds the most semantically similar reels in ChromaD
 
 **SHA-256 URL hashing** — URLs are hashed to produce stable, filesystem-safe ChromaDB document IDs. Same URL always maps to the same ID, so `upsert` silently overwrites instead of duplicating — no extra deduplication logic needed.
 
-**Local vector store** — ChromaDB persists to disk at `./chroma_store`. No external database, no cloud dependency, no monthly bill.
+**Docker-first** — the project is containerised so it runs identically on any machine or server without manual environment setup. The image pins Python 3.11 and all dependencies, eliminating "works on my machine" issues.
+
+**Local vector store** — ChromaDB persists to disk at `./chroma_store` via a bind mount. No external database, no cloud dependency, no monthly bill.
