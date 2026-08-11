@@ -15,12 +15,13 @@ import sys
 # Adds the 'src' directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from rag.embedder import is_already_indexed, store_reel, get_stats
-from rag.downloader import download_reel
-from rag.video_analyzer import analyze_video
-from rag.retriever import search_reel
-from rag.generator import format_results
+from src.rag.ingest.ingestor import is_already_indexed, store_reel, get_stats
+from src.rag.ingest.downloader import download_reel
+from src.rag.ingest.video_analyzer import analyze_video
+from src.rag.retrieve.retriever import search_reel
+from src.rag.generate.generator import format_results
 from bot.onboarding import handle_bulk_onboarding
+from src.rag.database.qdrant_setup import get_client, ensure_collection
 
 load_dotenv()
 
@@ -49,11 +50,11 @@ async def handle_reel_url(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         # print("analyzing video...\n")
 
         # step 2 - analyze
-        summary = analyze_video(video_path)
+        analysis = analyze_video(video_path)
         # print("ingesting summary in chromadb...\n")
 
         # step 3 - store
-        store_reel(url, summary)
+        store_reel(url, analysis)
         # print("removing video from tmp folder...")
 
         # step 4 - clean up temp file
@@ -63,7 +64,7 @@ async def handle_reel_url(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         # step 5 - confirm with summary so user sees what was indexed
         await update.message.reply_text(
-            f"Reel ingested successfully.\n{summary[:50]}..."
+            f"Reel ingested successfully.\n{analysis.summary[:50]}..."
         )
 
     except ValueError as e:
@@ -82,8 +83,6 @@ async def handle_reel_url(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(
             f"Unexpected error while ingesting. Please try again.\n{str(e)}"
         )
-
-
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -114,8 +113,6 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # Clean up the json file after onboarding finishes
     json_path.unlink(missing_ok=True)
     Path(tmp_dir).rmdir()
-
-    
 
 async def handle_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
@@ -190,16 +187,12 @@ def main() -> None:
     if not token:
         raise ValueError("TELEGRAM_BOT_TOKEN not set in .env")
     
+    # Qdrant startup
+    ensure_collection(get_client())
+
     # ApplicationBuilder is the wiring object — analogous to SpringApplication.run()
     app = ApplicationBuilder().token(token).build()
 
-    # Register handlers in priority order — first match wins.
-    # filters.Document.ALL matches any file attachment.
-    # filters.TEXT matches any plain text message.
-    # filters.Regex checks whether the text contains a pattern.
-    #
-    # Order matters: file check must come before text checks,
-    # and URL check must come before the generic search fallback.
     app.add_handler(CommandHandler("stats", handle_stats))
     app.add_handler(CommandHandler("help", handle_help))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))

@@ -2,10 +2,10 @@ import json
 import time
 from pathlib import Path
 from telegram import Update
-from rag.embedder import is_already_indexed, store_reel
-from rag.downloader import download_reel
-from rag.video_analyzer import analyze_video
-from rag.config import RATE_LIMIT_DELAY
+from src.rag.ingest.ingestor import is_already_indexed, store_reel
+from src.rag.ingest.downloader import download_reel
+from src.rag.ingest.video_analyzer import analyze_video
+from src.rag.util.config import RATE_LIMIT_DELAY
 
 
 def extract_urls(json_path: Path) -> list[str]:
@@ -76,8 +76,8 @@ async def handle_bulk_onboarding(json_path: Path, update: Update) -> None:
 
         try:
             video_path = download_reel(url)
-            summary = analyze_video(video_path)
-            store_reel(url, summary)
+            analysis = analyze_video(video_path)
+            store_reel(url, analysis)
             print("\n")
 
             # Clean up temp file immediately after storing
