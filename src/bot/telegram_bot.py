@@ -10,18 +10,15 @@ from telegram.ext import (
     CommandHandler,
     filters,
 )
-import sys
 
-# Adds the 'src' directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.rag.ingest.ingestor import is_already_indexed, store_reel, get_stats
-from src.rag.ingest.downloader import download_reel
-from src.rag.ingest.video_analyzer import analyze_video
-from src.rag.retrieve.retriever import search_reel
-from src.rag.generate.generator import format_results
+from rag.ingest.ingestor import is_already_indexed, store_reel, get_stats
+from rag.ingest.downloader import download_reel
+from rag.ingest.video_analyzer import analyze_video
+from rag.retrieve.retriever import search_reel
+from rag.generate.generator import format_results
 from bot.onboarding import handle_bulk_onboarding
-from src.rag.database.qdrant_setup import get_client, ensure_collection
+from rag.database.qdrant_setup import get_client, ensure_collection
 
 load_dotenv()
 

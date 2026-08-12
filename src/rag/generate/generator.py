@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate # type: ignore
 from langchain_core.output_parsers import StrOutputParser # type: ignore
 from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore
-from src.rag.retrieve.retriever import RetrievedReel
-from src.rag.util.config import ANSWER_FORMAT_MODEL
+from rag.retrieve.retriever import RetrievedReel
+from rag.util.config import ANSWER_FORMAT_MODEL
 
 load_dotenv()
 
@@ -29,7 +29,7 @@ For each result show:
 - One sentence describing why it matches the query
 
 Keep the tone casual and helpful. No markdown headers. No bullet walls.
-Separate each result with a blank line.
+Separate each result with a blank line. Order with higher priority one first.
 If the matching reels attached are not at all totally relevant just say "No such content in your collection...".
 If there is only one result, still format it the same way.
 """)

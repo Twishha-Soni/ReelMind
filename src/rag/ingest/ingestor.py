@@ -1,9 +1,9 @@
 import hashlib
 from datetime import datetime
 from qdrant_client.models import PointStruct, SparseVector # type: ignore
-from src.rag.database.qdrant_setup import get_vector_store, COLLECTION_NAME, get_client, DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME
-from ..util.config import EMBEDDING_MODEL
-from src.rag.models.model import VideoAnalysis
+from rag.database.qdrant_setup import get_vector_store, COLLECTION_NAME, get_client, DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME
+from rag.util.config import EMBEDDING_MODEL
+from rag.models.model import VideoAnalysis
 
 def _url_to_id(url: str) -> str:
     """
@@ -13,9 +13,9 @@ def _url_to_id(url: str) -> str:
     return int(hashlib.sha256(url.encode()).hexdigest()[:16], 16)
 
 def store_reel(url: str, analysis: VideoAnalysis) -> None:
-    vector_store = get_vector_store()
+    vector_store = get_vector_store(get_client())
 
-    dense_vector = vector_store.embeddings.embed_quert(analysis.summary)
+    dense_vector = vector_store.embeddings.embed_query(analysis.summary)
 
     keywords_text = " ".join(analysis.keywords)
     sparse_result = vector_store.sparse_embeddings.embed_query(keywords_text)
@@ -30,11 +30,13 @@ def store_reel(url: str, analysis: VideoAnalysis) -> None:
             ),
         },
         payload={
-            'url': url,
-            'summary': analysis.summary,
-            'keywords': analysis.keywords,
-            'timestamp': datetime.now().isoformat(timespec='seconds')
-        }
+            'page_content': analysis.summary,
+                 
+            'metadata': {
+                'url': url,
+                'keywords': analysis.keywords,
+                'timestamp': datetime.now().isoformat(timespec='seconds')
+        }}
     )
 
     get_client().upsert(collection_name=COLLECTION_NAME, points=[point])    
@@ -62,7 +64,7 @@ def get_stats() -> dict:
         with_payload=['timestamp']
     )
 
-    timestamps = [p.payload["timestamp"] for p in points]
+    timestamps = [p.payload.get('timestamp', '0') for p in points]
 
     return {
         "total": total,

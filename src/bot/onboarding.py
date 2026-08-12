@@ -2,10 +2,10 @@ import json
 import time
 from pathlib import Path
 from telegram import Update
-from src.rag.ingest.ingestor import is_already_indexed, store_reel
-from src.rag.ingest.downloader import download_reel
-from src.rag.ingest.video_analyzer import analyze_video
-from src.rag.util.config import RATE_LIMIT_DELAY
+from rag.ingest.ingestor import is_already_indexed, store_reel
+from rag.ingest.downloader import download_reel
+from rag.ingest.video_analyzer import analyze_video
+from rag.util.config import RATE_LIMIT_DELAY
 
 
 def extract_urls(json_path: Path) -> list[str]:

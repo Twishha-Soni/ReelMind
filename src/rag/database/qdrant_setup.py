@@ -2,7 +2,7 @@ from langchain_qdrant import QdrantVectorStore, FastEmbedSparse, RetrievalMode #
 from langchain_huggingface import HuggingFaceEmbeddings # type: ignore
 from qdrant_client import QdrantClient # type: ignore
 from qdrant_client.models import Distance, VectorParams, SparseVectorParams, SparseIndexParams # type: ignore
-from src.rag.util.config import EMBEDDING_MODEL
+from rag.util.config import EMBEDDING_MODEL
 
 COLLECTION_NAME = 'reels'
 DENSE_VECTOR_NAME = 'dense'

@@ -4,8 +4,8 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from ..util.config import VIDEO_ANALYSIS_MODEL
-from src.rag.models.model import VideoAnalysis
+from rag.util.config import VIDEO_ANALYSIS_MODEL
+from rag.models.model import VideoAnalysis
 
 load_dotenv()
 
