@@ -1,17 +1,16 @@
 import os
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
 from langchain_core.prompts import ChatPromptTemplate # type: ignore
 from langchain_core.output_parsers import StrOutputParser # type: ignore
 from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore
 from rag.retrieve.retriever import RetrievedReel
 from rag.util.config import ANSWER_FORMAT_MODEL
 from rag.models.llm_response import SearchResponse
+from ddgs import DDGS
 
 load_dotenv()
 
-_grounding_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY_SEARCH_RESULT_GENERATOR'))
 
 _llm = ChatGoogleGenerativeAI(
     model=ANSWER_FORMAT_MODEL,
@@ -70,13 +69,32 @@ def format_results(query: str, results: list[RetrievedReel]) -> SearchResponse:
         'results_block': results_block
     })
 
+
+
+# -------------- Web search fallback --------------
+_grounding_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY_SEARCH_RESULT_GENERATOR'))
+
 def web_search_fallback(query: str) -> str:
+    updated_query = f"Search for Instagram Reel for: {query}"
+    with DDGS() as ddgs:
+        results = list(ddgs.text(updated_query, max_results=3))
+
+    if not results:
+        return "Couldn't find anything relevant, even on the web. Try rephrasing your search query."
+
+    results_block = ""
+    for r in results:
+        results_block += f"Title: {r['title']}\n{r['body']}\nURL: {r['href']}\n\n"
+
     response = _grounding_client.models.generate_content(
         model=ANSWER_FORMAT_MODEL,
         contents=f"""
 The user asked: "{query}"
 
-Search the web for at most 3 instagram reels and give a short, casual, helpful answer and format these as a clean, readable Telegram message.
+Here are some web search results:
+{results_block}
+
+Give a short, casual, helpful answer and format these as a clean, readable Telegram message.
 For each result show:
 - A short title or topic 
 - The URL on its own line so Telegram renders a preview
@@ -84,9 +102,6 @@ For each result show:
 
 No markdown headers. Keep it concise — a few sentences. And at the top add this line compulsory that as 'I don't find anything related to your request in your storage, hence these are some useful links I searched on web.'
 """,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())]
-        ),
     )
 
     return response.text.strip()
