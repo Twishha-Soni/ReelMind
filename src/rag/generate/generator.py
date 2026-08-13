@@ -42,7 +42,6 @@ def _build_results_block(results: list[RetrievedReel]) -> str:
         results_block += f"""
 Result {i}:
 URL: {reel.url}
-Similarity: {{reel.similarity}}%
 Indexed on: {reel.timestamp}
 Summary: {reel.summary}
 """.strip() + '\n\n'

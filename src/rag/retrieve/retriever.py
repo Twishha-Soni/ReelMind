@@ -20,7 +20,6 @@ def search_reel(query: str, top_k: int = TOP_K_RESULTS) -> list[RetrievedReel]:
     top_score = results[0][1]
     
     retrieved = []
-    print(results)
     for doc, score in results:
         relative_pct = round((score / top_score) * 100) if top_score > 0 else 0
         retrieved.append(RetrievedReel(
@@ -30,5 +29,6 @@ def search_reel(query: str, top_k: int = TOP_K_RESULTS) -> list[RetrievedReel]:
             similarity=relative_pct,
         ))
 
-    print('Retrieved related content from your database.')
+    print('Retrieved related content from your database.\n')
+    print(retrieved)
     return retrieved

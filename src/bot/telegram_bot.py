@@ -10,8 +10,6 @@ from telegram.ext import (
     CommandHandler,
     filters,
 )
-
-
 from rag.ingest.ingestor import is_already_indexed, store_reel, get_stats
 from rag.ingest.downloader import download_reel
 from rag.ingest.video_analyzer import analyze_video

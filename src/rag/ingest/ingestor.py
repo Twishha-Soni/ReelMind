@@ -61,10 +61,11 @@ def get_stats() -> dict:
     points, _ = get_client().scroll(
         collection_name=COLLECTION_NAME,
         limit=total,
-        with_payload=['timestamp']
+        with_payload=['metadata.timestamp']
     )
 
-    timestamps = [p.payload.get('timestamp', '0') for p in points]
+    timestamps = [p.payload.get('metadata', {}).get('timestamp') for p in points]
+
 
     return {
         "total": total,
