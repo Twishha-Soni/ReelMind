@@ -30,5 +30,4 @@ def search_reel(query: str, top_k: int = TOP_K_RESULTS) -> list[RetrievedReel]:
         ))
 
     print('Retrieved related content from your database.\n')
-    print(retrieved)
     return retrieved
