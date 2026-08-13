@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from rag.util.config import VIDEO_ANALYSIS_MODEL
-from rag.models.model import VideoAnalysis
+from rag.models.video_analysis import VideoAnalysis
 
 load_dotenv()
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from qdrant_client.models import PointStruct, SparseVector # type: ignore
 from rag.database.qdrant_setup import get_vector_store, COLLECTION_NAME, get_client, DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME
 from rag.util.config import EMBEDDING_MODEL
-from rag.models.model import VideoAnalysis
+from rag.models.video_analysis import VideoAnalysis
 
 def _url_to_id(url: str) -> str:
     """

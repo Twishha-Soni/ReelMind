@@ -16,7 +16,7 @@ from rag.ingest.ingestor import is_already_indexed, store_reel, get_stats
 from rag.ingest.downloader import download_reel
 from rag.ingest.video_analyzer import analyze_video
 from rag.retrieve.retriever import search_reel
-from rag.generate.generator import format_results
+from rag.generate.generator import format_results, web_search_fallback
 from bot.onboarding import handle_bulk_onboarding
 from rag.database.qdrant_setup import get_client, ensure_collection
 
@@ -120,14 +120,14 @@ async def handle_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     try:
         results = search_reel(query)
+        search_response = format_results(query, results)
 
-        if not results:
-            await update.message.reply_text(
-                f"No matching reels found. Try ingesting some reels first."
-            )
-            return
-        
-        reply = format_results(query, results)
+        if search_response.needs_web_search:
+            print('Going for web search...')
+            reply = web_search_fallback(query)
+        else:
+            reply = search_response.formatted_text
+
         await update.message.reply_text(reply)
     
     except Exception as e:

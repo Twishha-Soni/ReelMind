@@ -30,5 +30,9 @@ def search_reel(query: str, top_k: int = TOP_K_RESULTS) -> list[RetrievedReel]:
             similarity=relative_pct,
         ))
 
+<<<<<<< Updated upstream
     print('Retrieved related content from your database.')
+=======
+    print('Retrieved related content from your database.\n')
+>>>>>>> Stashed changes
     return retrieved
