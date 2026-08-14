@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from rag.database.qdrant_setup import get_client, get_vector_store
 from rag.util.config import TOP_K_RESULTS
+import sys
 
 @dataclass
 class RetrievedReel:
@@ -29,5 +30,5 @@ def search_reel(query: str, top_k: int = TOP_K_RESULTS) -> list[RetrievedReel]:
             similarity=relative_pct,
         ))
 
-    print('Retrieved related content from your database.\n')
+    print('Retrieved related content from your database.\n', file=sys.stderr)
     return retrieved

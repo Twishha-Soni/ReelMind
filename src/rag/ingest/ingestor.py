@@ -1,4 +1,5 @@
 import hashlib
+import sys
 from datetime import datetime
 from qdrant_client.models import PointStruct, SparseVector # type: ignore
 from rag.database.qdrant_setup import get_vector_store, COLLECTION_NAME, get_client, DENSE_VECTOR_NAME, SPARSE_VECTOR_NAME
@@ -41,7 +42,7 @@ def store_reel(url: str, analysis: VideoAnalysis) -> None:
 
     get_client().upsert(collection_name=COLLECTION_NAME, points=[point])    
 
-    print(f"Stored reel: {url}")
+    print(f"Stored reel: {url}", file=sys.stderr)
 
 def is_already_indexed(url: str) -> bool:
     result = get_client().retrieve(collection_name=COLLECTION_NAME, ids=[_url_to_id(url)])

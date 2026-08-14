@@ -1,5 +1,6 @@
 import os
 import time
+import sys
 from pathlib import Path
 from google import genai
 from google.genai import types
@@ -36,14 +37,14 @@ def analyze_video(video_path: Path) -> VideoAnalysis:
     This summary is what gets embedded into ChromaDB —
     its quality directly determines search result quality.
     """
-    print(f"Uploading {video_path.name} to Gemini File API...")
+    print(f"Uploading {video_path.name} to Gemini File API...", file=sys.stderr)
 
     uploaded_file = _client.files.upload(
         file=video_path,
         config=types.UploadFileConfig(mime_type="video/mp4")
     )
 
-    print("Waiting for Gemini to process the video...")
+    print("Waiting for Gemini to process the video...", file=sys.stderr)
 
     while uploaded_file.state.name == "PROCESSING":
         time.sleep(2)
@@ -54,7 +55,7 @@ def analyze_video(video_path: Path) -> VideoAnalysis:
             f"File processing failed. Final state: {uploaded_file.state.name}"
         )
     
-    print("Generating semantic summary...")
+    print("Generating semantic summary...", file=sys.stderr)
 
     response = _client.models.generate_content(
         model=VIDEO_ANALYSIS_MODEL,
@@ -68,7 +69,7 @@ def analyze_video(video_path: Path) -> VideoAnalysis:
     analysis = VideoAnalysis.model_validate_json(response.text.strip())
 
     _client.files.delete(name=uploaded_file.name)
-    print("File deleted from Gemini servers.")
+    print("File deleted from Gemini servers.", file=sys.stderr)
 
     return analysis
     
