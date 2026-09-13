@@ -2,6 +2,10 @@ import tempfile
 from pathlib import Path
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError, ExtractorError
+import logging
+import sys
+
+
 
 def download_reel(url: str) -> Path:
     """
@@ -12,7 +16,10 @@ def download_reel(url: str) -> Path:
     authentication headers, CDN redirects, format negotiation.
     We just hand it a URL and an options dict.
     """
-    
+    _ytdlp_logger = logging.getLogger("yt_dlp")
+    _ytdlp_logger.addHandler(logging.StreamHandler(sys.stderr))
+    _ytdlp_logger.setLevel(logging.ERROR)
+
     temp_dir = tempfile.mkdtemp()
 
     opts = {
@@ -20,6 +27,8 @@ def download_reel(url: str) -> Path:
         "format": "mp4/best",
         "quiet": True,
         "no_warnings": True,
+        "noprogress": True,
+        "logger": _ytdlp_logger,
     }
 
     try:

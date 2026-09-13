@@ -7,8 +7,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore
 from rag.retrieve.retriever import RetrievedReel
 from rag.util.config import ANSWER_FORMAT_MODEL
 from rag.models.llm_response import SearchResponse
-from ddgs import DDGS
+from tavily import TavilyClient
 
+tavily_client = TavilyClient()
 load_dotenv()
 
 
@@ -75,16 +76,21 @@ def format_results(query: str, results: list[RetrievedReel]) -> SearchResponse:
 _grounding_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY_SEARCH_RESULT_GENERATOR'))
 
 def web_search_fallback(query: str) -> str:
-    updated_query = f"Search for Instagram Reel for: {query}"
-    with DDGS() as ddgs:
-        results = list(ddgs.text(updated_query, max_results=3))
+    updated_query = f"Search for Instagram Reels only for: {query}"
+
+    results = tavily_client.search(
+        query=updated_query,
+        max_results=3,
+        time_range="year",
+        include_domains=["instagram.com"],
+    )
 
     if not results:
         return "Couldn't find anything relevant, even on the web. Try rephrasing your search query."
 
     results_block = ""
-    for r in results:
-        results_block += f"Title: {r['title']}\n{r['body']}\nURL: {r['href']}\n\n"
+    for r in results['results']:
+        results_block += f"Title: {r['title']}\n{r['content']}\n{r['score']}\nURL: {r['url']}\n\n"
 
     response = _grounding_client.models.generate_content(
         model=ANSWER_FORMAT_MODEL,
