@@ -28,6 +28,7 @@ Send a reel URL to index it. Type anything in plain English to find it later —
 
 ## Architecture
 
+<img width="1959" height="939" alt="Workflow_design" src="https://github.com/user-attachments/assets/e872f006-1589-4ca4-96d0-04593b389af7" />
 
 
 ---
