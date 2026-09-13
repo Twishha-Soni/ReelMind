@@ -7,52 +7,28 @@ Send a reel URL to index it. Type anything in plain English to find it later —
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=flat-square&logo=python&logoColor=white)
 ![Telegram](https://img.shields.io/badge/Telegram-Bot-26a5e4?style=flat-square&logo=telegram&logoColor=white)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-vector_store-f97316?style=flat-square)
-![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285f4?style=flat-square&logo=google&logoColor=white)
-![sentence-transformers](https://img.shields.io/badge/sentence--transformers-all--MiniLM--L6--v2-8b5cf6?style=flat-square)
+![Qdrant](https://img.shields.io/badge/Qdrant-hybrid_vector_store-dc244c?style=flat-square)
+![LangChain](https://img.shields.io/badge/LangChain-retrieval-1c3c3c?style=flat-square)
+![Gemini](https://img.shields.io/badge/Gemini-2.5_%2F_3.5_Flash-4285f4?style=flat-square&logo=google&logoColor=white)
+![FastMCP](https://img.shields.io/badge/FastMCP-MCP_server-6d28d9?style=flat-square)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ed?style=flat-square&logo=docker&logoColor=white)
 
 ---
 
 ## What it does
 
-- **Index by URL** — send any public Instagram reel link and ReelMind downloads it, generates a rich semantic summary via Gemini, and stores it in a local vector database
+- **Index by URL** — send any public Instagram reel link and ReelMind downloads it, generates a rich semantic summary via Gemini, and stores it in Qdrant
 - **Bulk import** — send your Instagram `saved_posts.json` export and ReelMind indexes every saved reel automatically
-- **Semantic search** — type anything in plain English (`morning routine`, `React hooks tutorial`, `funny cooking fails`) and ReelMind returns the most relevant reels from your collection
-- **No duplicates** — every URL is SHA-256 hashed before storage; re-sending an already-indexed reel is detected instantly without re-downloading
+- **Hybrid semantic search** — type anything in plain English (`morning routine`, `React hooks tutorial`, `funny cooking fails`) and ReelMind runs combined dense + sparse (BM25) retrieval against your indexed reels
+- **LLM-judged web fallback** — if the indexed results genuinely aren't relevant to your query, ReelMind detects this inline and falls back to a live web search instead of showing weak matches
+- **No duplicates** — every URL is checked against the index before download; re-sending an already-indexed reel is detected instantly without re-downloading
+- **A second client, via MCP** — the same search / stats / ingest capabilities are also exposed as MCP tools, so a client like Claude Desktop can call them directly, outside Telegram entirely
 
 ---
 
 ## Architecture
 
-```
-User (Telegram)
-      │
-      ▼
-┌─────────────────────────────────────────────┐
-│              bot/telegram_bot.py             │
-│                                             │
-│  CommandHandler  → /stats, /help            │
-│  MessageHandler  → URL ingest               │
-│  MessageHandler  → JSON bulk upload         │
-│  MessageHandler  → search fallback          │
-└────┬──────────────────────────┬─────────────┘
-     │ ingest path              │ search path
-     ▼                          ▼
-downloader.py            retriever.py
-(yt-dlp)                 (sentence-transformers)
-     │                          │
-     ▼                          ▼
-video_analyzer.py          ChromaDB
-(Gemini File API)        (PersistentClient)
-     │                          │
-     ▼                          ▼
-embedder.py              generator.py
-(ChromaDB upsert)        (Gemini — format results)
-                                │
-                                ▼
-                         Telegram reply
-```
+
 
 ---
 
@@ -62,12 +38,15 @@ embedder.py              generator.py
 |---|---|
 | Language | Python 3.10+ |
 | Bot interface | `python-telegram-bot` |
-| Video download | `yt-dlp` |
-| Video understanding | Gemini 2.5 Flash via `google-genai` SDK (File API) |
-| Result formatting | Gemini 3.1 Flash Lite via `google-genai` SDK |
-| Embeddings | `sentence-transformers` (`all-MiniLM-L6-v2`) |
-| Vector store | ChromaDB (`PersistentClient`, local disk) |
-| Duplicate detection | SHA-256 URL hashing |
+| Second client interface | `FastMCP` (MCP server, stdio transport) |
+| Video download | `yt-dlp` (silenced via `noprogress` + custom stderr-routed logger) |
+| Video understanding | Gemini (File API) via `google-genai` SDK |
+| Result formatting + relevance judgment | Gemini via `google-genai` SDK, structured output (`SearchResponse`) |
+| Web search fallback | `tavily` + Gemini summarization |
+| Embeddings | `sentence-transformers` / HuggingFace (dense) + FastEmbed BM25 (sparse) |
+| Vector store | Qdrant — hybrid `RetrievalMode.HYBRID`, dense + sparse collections |
+| Retrieval orchestration | LangChain (`QdrantVectorStore`) |
+| Duplicate detection | Pre-download index check (`is_already_indexed`) |
 | Containerisation | Docker + Docker Compose |
 
 ---
@@ -76,23 +55,68 @@ embedder.py              generator.py
 
 ```
 ReelMind/
-├── Dockerfile                # Container build instructions
-├── docker-compose.yml        # Local and production run config
-├── .env                      # API keys (never committed)
-├── .dockerignore             # Excludes .env, venv, chroma_store from build
-├── requirements.txt
-├── chroma_store/             # Auto-created on first ingest
+├── Dockerfile                     # Container build instructions
+├── docker-compose.yml              # Local and production run config
+├── .env                            # API keys (never committed)
+├── pyproject.toml / uv.lock        # uv-managed dependencies
 └── src/
     ├── bot/
-    │   ├── telegram_bot.py   # Handler registration and bot startup
-    │   └── onboarding.py     # Bulk import from saved_posts.json
+    │   ├── telegram_bot.py         # Handler registration and bot startup
+    │   └── onboarding.py           # Bulk import from saved_posts.json
+    ├── mcp_server/
+    │   └── server.py               # FastMCP server — search / stats / ingest as MCP tools
     └── rag/
-        ├── config.py         # All constants — models, chunk sizes, rate limits
-        ├── downloader.py     # yt-dlp wrapper with typed error handling
-        ├── video_analyzer.py # Gemini File API — upload, poll, summarize, delete
-        ├── embedder.py       # Embed summaries and store/retrieve from ChromaDB
-        ├── retriever.py      # Cosine similarity search, returns RetrievedReel dataclasses
-        └── generator.py      # Gemini formats raw results into clean Telegram messages
+        ├── util/
+        │   └── config.py           # Models, top_k, rate limits
+        ├── database/
+        │   └── qdrant_setup.py     # Qdrant client, collection setup, hybrid vector store
+        ├── ingest/
+        │   ├── downloader.py       # yt-dlp wrapper, typed error handling, silent stdout
+        │   ├── video_analyzer.py   # Gemini File API — upload, poll, summarize
+        │   └── ingestor.py         # Store reel, get_stats, is_already_indexed
+        ├── retrieve/
+        │   └── retriever.py        # Hybrid Qdrant search, returns RetrievedReel dataclasses
+        ├── generate/
+        │   └── generator.py        # format_results (+ relevance judge) and web_search_fallback
+        └── models/
+            ├── llm_response.py      # SearchResponse (formatted_text, needs_web_search)
+            └── video_analysis.py
+```
+
+---
+
+## MCP server — a second client, outside Telegram
+
+Every ReelMind capability used to be reachable only through the Telegram bot process. The `mcp_server/` package exposes the same underlying `rag/` functions as MCP tools, over stdio, so a separate client (e.g. Claude Desktop) can call them directly:
+
+| Tool | Wraps | Notes |
+|---|---|---|
+| `search_indexed_reel(query)` | `retriever.search_reel` + `generator.format_results` (+ web fallback) | Same relevance-judged search as the bot, returned as plain text |
+| `handle_store_reel(url)` | `downloader.download_reel` → `video_analyzer.analyze_video` → `ingestor.store_reel` | Blocking call — may take up to a minute; errors are returned as messages, not raised, so the client sees a clean result rather than a tool failure |
+| `handle_get_stats()` | `ingestor.get_stats` | Total indexed reels, earliest/latest timestamp |
+
+Two mechanical details worth knowing if you extend this:
+
+- **stdio is the wire.** The server's stdout *is* the JSON-RPC channel back to the client — any stray `print()`, or a dependency that writes its own progress output to stdout (yt-dlp's download progress bar was one such case here), corrupts the stream and breaks the connection. All internal logging in this project is routed to `stderr`.
+- **Errors are caught and returned, not raised**, for expected failure modes (invalid URL, private reel, deleted reel). Raising would surface as a hard tool-execution failure to the client; returning a message lets the client relay it naturally as information.
+
+To run it standalone for testing (outside any client):
+
+```bash
+fastmcp dev src/mcp_server/server.py
+```
+
+To register it with Claude Desktop, add an entry to its MCP server config pointing at this repo, e.g.:
+
+```json
+{
+  "mcpServers": {
+    "reelmind": {
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/ReelMind/src", "python", "-m", "mcp_server.server"]
+    }
+  }
+}
 ```
 
 ---
@@ -104,6 +128,7 @@ ReelMind/
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
 - A Telegram bot token from [@BotFather](https://t.me/BotFather)
 - A Gemini API key from [aistudio.google.com](https://aistudio.google.com) (free tier works)
+- A tavily APi key from [app.tavily.com](https://app.tavily.com) (free tier works)
 
 ---
 
@@ -119,7 +144,7 @@ cd ReelMind
 ### 2. Create your `.env` file
 
 ```bash
-cp .env.example .env
+cp example.env .env
 ```
 
 Open `.env` and fill in your keys:
@@ -127,16 +152,21 @@ Open `.env` and fill in your keys:
 ```env
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
-GEMINI_API_KEY_VIDEO_ANALYZER=your_gemini_api_key
-GEMINI_API_KEY_SEARCH_RESULT_GENERATOR=your_gemini_api_key
+GEMINI_API_KEY_VIDEO_ANALYZER=your_gemini_api_key1
+GEMINI_API_KEY_SEARCH_RESULT_GENERATOR=your_gemini_api_key2
+
+TAVILY_API_KEY=your_tavily_api_key
 ```
 
 | Key | Where to get it |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | [@BotFather](https://t.me/BotFather) on Telegram — send `/newbot` |
 | `GEMINI_API_KEY_*` | [aistudio.google.com](https://aistudio.google.com) — free tier works |
+| `TAVILY_API_KEY` | [app.tavily.com](https://app.tavily.com) - free tier works
 
 > Two separate Gemini keys are used to distribute load across free-tier RPM limits. You can use the same key for both.
+
+Qdrant also needs to be running — the included `docker-compose.yml` starts it alongside the bot. If you're running without Docker (Section 6), start Qdrant separately, e.g. `docker run -p 6333:6333 qdrant/qdrant`.
 
 ---
 
@@ -187,7 +217,7 @@ docker compose stop
 # Start it again
 docker compose start
 
-# Stop and remove the container (data is still preserved — it lives in chroma_store/)
+# Stop and remove the container (data is still preserved — it lives in the Qdrant volume)
 docker compose down
 
 # Rebuild after a code change and restart
@@ -196,9 +226,9 @@ docker compose up --build -d
 
 ---
 
-### 5. ChromaDB persistence locally
+### 5. Qdrant persistence locally
 
-ChromaDB data is stored in `chroma_store/` at your project root via a bind mount. This directory is created automatically on first ingest. It is excluded from the Docker image (via `.dockerignore`) and from Git (via `.gitignore`), so your indexed reels persist across:
+Qdrant persists its data to a Docker volume defined in `docker-compose.yml`, so your indexed reels (dense + sparse vectors) survive:
 
 - Container restarts (`docker compose restart`)
 - Container removal (`docker compose down` then `docker compose up`)
@@ -207,8 +237,7 @@ ChromaDB data is stored in `chroma_store/` at your project root via a bind mount
 To wipe your local index and start fresh:
 
 ```bash
-docker compose down
-rm -rf chroma_store/
+docker compose down -v   # -v also removes the Qdrant volume
 docker compose up -d
 ```
 
@@ -216,17 +245,20 @@ docker compose up -d
 
 ### 6. Run without Docker (alternative)
 
-If you prefer running directly with Python:
+If you prefer running directly with Python (`uv` is used for dependency management):
 
 ```bash
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-python3 src/bot/telegram_bot.py
+uv sync
+uv run python src/bot/telegram_bot.py
 ```
 
-> **Note:** This requires Python 3.11+, gcc, and g++ installed on your machine for sentence-transformers to compile. Docker handles all of this automatically.
+> Make sure Qdrant is reachable at `localhost:6333` (or whatever `QDRANT_HOST`/`QDRANT_PORT` in `rag/database/qdrant_setup.py` point to) before starting the bot.
+
+---
+
+### 7. Running the MCP server
+
+To use ReelMind's capabilities from a second client (e.g. Claude Desktop) instead of Telegram, see [MCP server](#mcp-server--a-second-client-outside-telegram) above.
 
 ---
 
@@ -262,7 +294,7 @@ React useState explained
 funny airport fails
 ```
 
-ReelMind embeds your query, finds the most semantically similar reels in ChromaDB, and returns formatted results with URLs and match percentages.
+ReelMind runs a hybrid dense + sparse (BM25) search against Qdrant, and returns formatted results with URLs and relative match percentages. If the results genuinely aren't relevant to your query, it falls back to a live web search automatically instead of showing weak matches.
 
 ### Commands
 
@@ -275,12 +307,16 @@ ReelMind embeds your query, finds the most semantically similar reels in ChromaD
 
 ## Design decisions
 
-**Automatic intent detection** — there are no explicit commands for indexing or searching. The bot detects intent from the message itself: a file triggers bulk import, an Instagram URL triggers ingest, anything else triggers search. This minimises friction on mobile.
+**Automatic intent detection** — there are no explicit commands for indexing or searching in the Telegram bot. It detects intent from the message itself: a file triggers bulk import, an Instagram URL triggers ingest, anything else triggers search. This minimises friction on mobile.
 
-**Two Gemini models** — video understanding uses `gemini-2.5-flash` (multimodal, higher capability); result formatting uses `gemini-3.1-flash-lite` (fast, lightweight). Splitting the workload across two models reduces free-tier quota pressure on either one.
+**Two Gemini models** — video understanding uses a Gemini Flash model (multimodal, higher capability); result formatting and relevance judgment use a lighter Flash model. Splitting the workload across two models reduces free-tier quota pressure on either one.
 
-**SHA-256 URL hashing** — URLs are hashed to produce stable, filesystem-safe ChromaDB document IDs. Same URL always maps to the same ID, so `upsert` silently overwrites instead of duplicating — no extra deduplication logic needed.
+**One structured call does formatting *and* relevance judgment** — rather than a separate classifier step, a single Gemini call (`.with_structured_output(SearchResponse)`) both formats Qdrant results into a Telegram-ready message and judges whether they're actually relevant to the query, returning `needs_web_search: bool` alongside the formatted text. If retrieval genuinely missed, the bot falls back to a live web search instead of showing noise.
 
-**Docker-first** — the project is containerised so it runs identically on any machine or server without manual environment setup. The image pins Python 3.11 and all dependencies, eliminating "works on my machine" issues.
+**Hybrid retrieval over pure dense similarity** — Qdrant stores both dense (semantic) and sparse (BM25 keyword) vectors per reel, combined via LangChain's `RetrievalMode.HYBRID`. This catches matches that pure embedding similarity misses (exact terms, names, acronyms) alongside semantic matches.
 
-**Local vector store** — ChromaDB persists to disk at `./chroma_store` via a bind mount. No external database, no cloud dependency, no monthly bill.
+**MCP as a second, independent consumer** — rather than only being reachable through the Telegram bot process, core capabilities (search, stats, ingest) are also exposed as MCP tools over stdio via `FastMCP`. The MCP server imports and calls the same `rag/` functions the bot uses — no duplicated logic — so both clients stay in sync automatically.
+
+**Docker-first** — the project is containerised so it runs identically on any machine or server without manual environment setup, and `docker-compose.yml` brings up Qdrant alongside the bot.
+
+**Qdrant over ChromaDB** — the project was rebuilt from an earlier ChromaDB-based version to Qdrant, to support hybrid dense + sparse retrieval and a more production-realistic vector store setup (persistent volume, dedicated collections, no in-process client).
